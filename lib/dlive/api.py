@@ -50,10 +50,7 @@ class DLiveSession(requests.Session):
 
 class DLiveService(object):
 
-    _headers_ = {
-        "Accept": "application/json",
-        "Content-Type": "application/json"
-    }
+    _headers_ = {}
 
     _query_url_ = "https://graphigo.prd.dlive.tv/"
 
