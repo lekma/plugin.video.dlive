@@ -49,6 +49,8 @@ class DLiveObject(with_metaclass(DLiveType, object)):
 
     def __new__(cls, data):
         if isinstance(data, dict):
+            if not data:
+                return None
             return super(DLiveObject, cls).__new__(cls)
         return data
 
@@ -87,7 +89,7 @@ class DLiveItems(list):
         self.category = category or self._category_
 
     def items(self, *args):
-        return (item.item(*args) for item in self)
+        return (item.item(*args) for item in self if item)
 
 
 # folders ----------------------------------------------------------------------
