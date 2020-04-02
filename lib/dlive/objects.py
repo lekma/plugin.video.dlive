@@ -9,7 +9,7 @@ from datetime import datetime
 from six import string_types, iteritems, with_metaclass, raise_from
 
 from .. import _folders_schema_, _home_folders_
-from ..utils import ListItem, build_url, localized_string, log
+from ..utils import ListItem, build_url, localized_string
 
 
 # ------------------------------------------------------------------------------

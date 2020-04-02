@@ -9,7 +9,7 @@ from kodi_six import xbmc, xbmcplugin
 from inputstreamhelper import Helper
 
 from .utils import parse_query, get_setting, get_subfolders, more_item
-from .utils import localized_string, search_dialog, log
+from .utils import localized_string, search_dialog
 from .dlive.api import service
 from .dlive.objects import Folders, Home
 

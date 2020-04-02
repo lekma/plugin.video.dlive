@@ -10,7 +10,7 @@ import requests
 import m3u8
 
 from . import objects, _queries_
-from ..utils import StreamQuality, notify, log
+from ..utils import StreamQuality, notify
 
 
 class GraphQLError(Warning):
