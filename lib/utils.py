@@ -6,75 +6,140 @@ from __future__ import absolute_import, division, unicode_literals
 
 from os.path import join
 
-from six import text_type, iteritems
+from six import text_type, iteritems, text_type
 from six.moves.urllib.parse import parse_qsl, urlencode
 from kodi_six import xbmc, xbmcaddon, xbmcgui
 
-from . import _subfolders_defaults_
+
+_addon_ = xbmcaddon.Addon()
+_addon_id_ = _addon_.getAddonInfo("id")
+_addon_name_ = _addon_.getAddonInfo("name")
+_addon_path_ = xbmc.translatePath(_addon_.getAddonInfo("path"))
+_addon_icon_ = xbmc.translatePath(_addon_.getAddonInfo("icon"))
+
+_dialog_ = xbmcgui.Dialog()
 
 
-addon = xbmcaddon.Addon()
-addon_path = xbmc.translatePath(addon.getAddonInfo("path"))
+def getWindowId():
+    return xbmcgui.getCurrentWindowId()
 
-dialog = xbmcgui.Dialog()
+def getAddonId():
+    return _addon_id_
+
+def getAddonName():
+    return _addon_name_
+
+def getAddonPath():
+    return _addon_path_
+
+def getAddonIcon():
+    return _addon_icon_
 
 
-def parse_query(query):
+def parseQuery(query):
     if query.startswith("?"):
         query = query[1:]
     return dict(parse_qsl(query))
 
 
-def build_url(*args, **kwargs):
+def buildUrl(*args, **kwargs):
     params = {k: v.encode("utf-8") if isinstance(v, text_type) else v
               for k, v in iteritems(kwargs)}
     return "?".join(("/".join(args), urlencode(params)))
 
 
-def localized_string(id):
+def localizedString(id):
     if id < 30000:
         return xbmc.getLocalizedString(id)
-    return addon.getLocalizedString(id)
+    return _addon_.getLocalizedString(id)
 
 
-def get_media_path(*args):
-    return join(addon_path, "resources", "media", *args)
+def getMediaPath(*args):
+    return join(_addon_path_, "resources", "media", *args)
 
-def get_icon(name):
-    return get_media_path("{}.png".format(name))
-
-
-def get_subfolders(style, subfolders=_subfolders_defaults_):
-    return [{"type": folder, "style": style} for folder in subfolders]
-
-
-# settings ---------------------------------------------------------------------
-
-_get_settings_ = {
-    bool: "getSettingBool",
-    int: "getSettingInt",
-    float: "getSettingNumber",
-    unicode: "getSettingString"
-}
-
-def get_setting(id, _type=None):
-    if _type is not None:
-        return _type(getattr(addon, _get_settings_.get(_type, "getSetting"))(id))
-    return addon.getSetting(id)
+def getIcon(name):
+    return getMediaPath("{}.png".format(name))
 
 
 # logging ----------------------------------------------------------------------
 
 def log(msg, level=xbmc.LOGNOTICE):
-    xbmc.log("{}: {}".format(addon.getAddonInfo("id"), msg), level=level)
+    xbmc.log("[{}] {}".format(_addon_id_, msg), level=level)
 
-
-def debug(msg):
+def logDebug(msg):
     log(msg, xbmc.LOGDEBUG)
 
-
-def warn(msg):
+def logWarning(msg):
     log(msg, xbmc.LOGWARNING)
+
+def logError(msg):
+    log(msg, xbmc.LOGERROR)
+
+
+# settings ---------------------------------------------------------------------
+
+_get_settings_ = {
+    bool: _addon_.getSettingBool,
+    int: _addon_.getSettingInt,
+    float: _addon_.getSettingNumber,
+    unicode: _addon_.getSettingString
+}
+
+def getSetting(id, _type=None):
+    if _type is not None:
+        return _type(_get_settings_.get(_type, _addon_.getSetting)(id))
+    return _addon_.getSetting(id)
+
+
+_set_settings_ = {
+    bool: _addon_.setSettingBool,
+    int: _addon_.setSettingInt,
+    float: _addon_.setSettingNumber,
+    unicode: _addon_.setSettingString
+}
+
+def setSetting(id, value, _type=None):
+    if _type is not None:
+        return _set_settings_.get(_type, _addon_.setSetting)(id, _type(value))
+    return _addon_.setSetting(id, value)
+
+
+# notify -----------------------------------------------------------------------
+
+iconInfo = xbmcgui.NOTIFICATION_INFO
+iconWarning = xbmcgui.NOTIFICATION_WARNING
+iconError = xbmcgui.NOTIFICATION_ERROR
+
+def notify(message, heading=_addon_name_, icon=_addon_icon_, time=5000):
+    if isinstance(message, int):
+        message = localizedString(message)
+    if isinstance(heading, int):
+        heading = localizedString(heading)
+    _dialog_.notification(heading, message, icon, time)
+
+
+# select -----------------------------------------------------------------------
+
+def selectDialog(_list, heading=_addon_name_, **kwargs):
+    if isinstance(heading, int):
+        heading = localizedString(heading)
+    return _dialog_.select(heading, _list, **kwargs)
+
+
+# input -----------------------------------------------------------------------
+
+def inputDialog(heading=_addon_name_, **kwargs):
+    if isinstance(heading, int):
+        heading = localizedString(heading)
+    return _dialog_.input(heading, **kwargs)
+
+
+# search -----------------------------------------------------------------------
+
+_search_heading_ = localizedString(30002)
+
+def searchDialog():
+    return inputDialog(_search_heading_)
 
 
 # listitem ---------------------------------------------------------------------
@@ -87,7 +152,7 @@ class ListItem(xbmcgui.ListItem):
             offscreen=True)
 
     def __init__(self, label, path, isFolder=False, infos=None,
-                 streamInfos=None, **art):
+                 streamInfos=None, contextMenus=None, **art):
         self.setIsFolder(isFolder)
         self.setIsPlayable(not isFolder)
         self.isFolder = isFolder
@@ -97,6 +162,8 @@ class ListItem(xbmcgui.ListItem):
         if streamInfos:
             for info in iteritems(streamInfos):
                 self.addStreamInfo(*info)
+        if contextMenus:
+            self.addContextMenuItems(contextMenus)
         if art:
             self.setArt(art)
 
@@ -107,76 +174,59 @@ class ListItem(xbmcgui.ListItem):
         return self.getPath(), self, self.isFolder
 
 
-_more_label_ = localized_string(30099)
-_more_icon_ = get_icon("more")
+_more_label_ = localizedString(30099)
+_more_icon_ = getIcon("more")
 
-def more_item(url, **kwargs):
+def getMoreItem(url, **kwargs):
     return ListItem(
-        _more_label_,  build_url(url, **kwargs), isFolder=True,
+        _more_label_,  buildUrl(url, **kwargs), isFolder=True,
         infos={"video": {"plot": _more_label_}}, icon=_more_icon_)
 
 
-# quality ----------------------------------------------------------------------
+# cache ------------------------------------------------------------------------
 
-class Quality(object):
+class Cache(dict):
 
-    # This has to reflect the 'stream_quality'/'vod_quality' settings.
-    # At the time of this writing, the order was:
-    # ["Auto", "1080p", "720p", "480p", "360p", "Always Ask", "Adaptive"]
-    _settings_ = (0, 1080, 720, 480, 360)
+    _type_ = text_type
+    _key_ = None
+    _missing_ = None
 
-    def __init__(self, playlist):
-        self.uri = playlist.uri
-        self.bandwidth = playlist.stream_info.bandwidth
-        self.width, self.height = playlist.stream_info.resolution
+    def __init__(self, items=None):
+        items = items or []
+        super(Cache, self).__init__(((self.key(item), item) for item in items))
 
-    def __str__(self):
-        return "{0.width}x{0.height}@{0.bandwidth}bps".format(self)
+    def __getitem__(self, key):
+        return super(Cache, self).__getitem__(self._type_(key))
+
+    def __setitem__(self, key, value):
+        return super(Cache, self).__setitem__(self._type_(key), value)
+
+    def __delitem__(self, key):
+        return super(Cache, self).__delitem__(self._type_(key))
+
+    def update(self, items):
+        return super(Cache, self).update(((self.key(item), item) for item in items))
+
+    def __missing__(self, key):
+        if self._missing_ is not None:
+            return self._missing_
+        raise KeyError(key)
 
     @classmethod
-    def select(cls, qualities):
-        return dialog.select(
-            cls._heading_, [str(quality) for quality in qualities])
+    def key(cls, item):
+        raise NotImplementedError
+
+
+class DataCache(Cache):
 
     @classmethod
-    def best_match(cls, quality, qualities):
-        height = cls._settings_[quality]
-        # we know/assume/hope the list is already sorted by height in descending order
-        for i, q in enumerate(qualities):
-            if q.height <= height: # exact match or closest below
-                return i
-        # what to do when the above fails to find a match?
-        # we could pop a dialog asking for manual selection, something like:
-        # return cls.select(qualities)
-        # for the time being, we just fail.
-        return -1
+    def key(cls, item):
+        return cls._type_(item[cls._key_])
 
 
-class StreamQuality(Quality):
+class ObjectCache(Cache):
 
-    _heading_ = localized_string(30121)
-
-
-class VodQuality(Quality):
-
-    _heading_ = localized_string(30122)
-
-
-# search -----------------------------------------------------------------------
-
-_search_label_ = localized_string(30002)
-
-def search_dialog():
-    return dialog.input(_search_label_)
-
-
-# notify -----------------------------------------------------------------------
-
-_notify_heading_ = localized_string(30000)
-
-def notify(message, heading=_notify_heading_, icon=xbmcgui.NOTIFICATION_ERROR,
-           time=2000):
-    if isinstance(message, int):
-        message = localized_string(message)
-    dialog.notification(heading, message, icon, time)
+    @classmethod
+    def key(cls, item):
+        return cls._type_(getattr(item, cls._key_))
 

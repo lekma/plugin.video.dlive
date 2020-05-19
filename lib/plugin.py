@@ -4,14 +4,14 @@
 from __future__ import absolute_import, division, unicode_literals
 
 
-from six import wraps
-from kodi_six import xbmc, xbmcplugin
-from inputstreamhelper import Helper
+import sys
 
-from .utils import parse_query, get_setting, get_subfolders, more_item
-from .utils import localized_string, search_dialog
-from .dlive.api import service
-from .dlive.objects import Folders, Home
+from six import wraps
+from kodi_six import xbmcplugin
+
+from client import client
+from objects import Home, Folders, _search_styles_
+from utils import parseQuery, getMoreItem, searchDialog, localizedString
 
 
 def action(category=0):
@@ -19,6 +19,7 @@ def action(category=0):
         func.__action__ = True
         @wraps(func)
         def wrapper(self, **kwargs):
+            success = False
             try:
                 self.category = category
                 self.action = func.__name__
@@ -33,26 +34,17 @@ def action(category=0):
     return decorator
 
 
+# ------------------------------------------------------------------------------
+# Dispatcher
+# ------------------------------------------------------------------------------
+
 class Dispatcher(object):
 
     def __init__(self, url, handle):
         self.url = url
         self.handle = handle
-        self.limit = get_setting("items_per_page", int)
-        self.showNSFW = get_setting("show_nsfw", bool)
-        self.language = xbmc.getLanguage(xbmc.ISO_639_1)
-
 
     # utils --------------------------------------------------------------------
-
-    def play(self, item, quality=0):
-        if quality == 6: # inputstream.adaptive
-            if not Helper("hls").check_inputstream():
-                return False
-            item.setProperty("inputstreamaddon", "inputstream.adaptive")
-            item.setProperty("inputstream.adaptive.manifest_type", "hls")
-        xbmcplugin.setResolvedUrl(self.handle, True, item)
-        return True
 
     def addItem(self, item):
         if item and not xbmcplugin.addDirectoryItem(self.handle, *item.asItem()):
@@ -66,7 +58,7 @@ class Dispatcher(object):
             raise
         if items.hasNextPage:
             kwargs["after"] = items.endCursor
-            self.addItem(more_item(self.url, action=self.action, **kwargs))
+            self.addItem(getMoreItem(self.url, action=self.action, **kwargs))
         if items.content:
             xbmcplugin.setContent(self.handle, items.content)
         if items.category:
@@ -79,31 +71,32 @@ class Dispatcher(object):
 
     def endDirectory(self, success):
         if success and self.category:
-            self.setCategory(localized_string(self.category))
+            self.setCategory(localizedString(self.category))
         xbmcplugin.endOfDirectory(self.handle, success)
 
+    def getSubfolders(self, _type, styles):
+        return ({"type": _type, "style": style} for style in styles)
 
     # actions ------------------------------------------------------------------
 
     @action()
     def stream(self, **kwargs):
-        quality = get_setting("stream_quality", int)
-        item = service.stream(quality, **kwargs)
-        return self.play(item, quality) if item else False
+        item = client.stream(**kwargs)
+        if not item:
+            return False
+        xbmcplugin.setResolvedUrl(self.handle, True, item)
+        return True
 
     @action()
     def user(self, **kwargs):
-        stream, vods = service.user(first=self.limit, **kwargs)
+        stream, vods = client.user(**kwargs)
         if stream:
             self.addItem(stream.item(self.url, "stream"))
         return self.addItems(vods, **kwargs)
 
     @action()
     def category(self, **kwargs):
-        return self.addItems(
-            service.category(
-                first=self.limit, showNSFW=self.showNSFW, **kwargs),
-            "stream", **kwargs)
+        return self.addItems(client.category(**kwargs), "stream", **kwargs)
 
     # --------------------------------------------------------------------------
 
@@ -113,52 +106,45 @@ class Dispatcher(object):
 
     @action(30007)
     def featured(self, **kwargs):
-        return self.addItems(
-            service.featured(userLanguageCode=self.language, **kwargs),
-            "stream")
+        return self.addItems(client.featured(**kwargs), "stream")
 
     @action(30009)
     def recommended(self, **kwargs):
-        return self.addItems(service.recommended(**kwargs), "user")
+        return self.addItems(client.recommended(**kwargs), "user")
 
     @action(30004)
-    def livestreams(self, **kwargs):
-        return self.addItems(
-            service.livestreams(
-                first=self.limit, showNSFW=self.showNSFW, **kwargs),
-            "stream", **kwargs)
+    def streams(self, **kwargs):
+        return self.addItems(client.streams(**kwargs), "stream", **kwargs)
 
     @action(30006)
     def categories(self, **kwargs):
-        return self.addItems(
-            service.categories(first=self.limit, **kwargs),
-            "category", **kwargs)
+        return self.addItems(client.categories(**kwargs), "category", **kwargs)
 
 
     # search -------------------------------------------------------------------
 
     @action(30002)
     def search(self, **kwargs):
-        return self.addItems(Folders(get_subfolders("search"), **kwargs))
+        return self.addItems(
+            Folders(self.getSubfolders("search", _search_styles_)))
 
     @action(30003)
     def search_users(self, **kwargs):
-        text = kwargs.pop("text", "") or search_dialog()
+        text = kwargs.pop("text", "") or searchDialog()
         if text:
             return self.addItems(
-                service.search_users(text=text, first=self.limit, **kwargs),
+                client.search_users(text=text, **kwargs),
                 "user", text=text, **kwargs)
-        return False # failing here is a bit stupid
+        return False
 
     @action(30006)
     def search_categories(self, **kwargs):
-        text = kwargs.pop("text", "") or search_dialog()
+        text = kwargs.pop("text", "") or searchDialog()
         if text:
             return self.addItems(
-                service.search_categories(text=text, first=self.limit, **kwargs),
+                client.search_categories(text=text, **kwargs),
                 "category", text=text, **kwargs)
-        return False # failing here is a bit stupid
-
+        return False
 
     # dispatch -----------------------------------------------------------------
 
@@ -169,6 +155,13 @@ class Dispatcher(object):
         return action(**kwargs)
 
 
+# __main__ ---------------------------------------------------------------------
+
 def dispatch(url, handle, query, *args):
-    Dispatcher(url, int(handle)).dispatch(**parse_query(query))
+    Dispatcher(url, int(handle)).dispatch(**parseQuery(query))
+
+
+if __name__ == "__main__":
+
+    dispatch(*sys.argv)
 

@@ -4,33 +4,12 @@
     <!-- General -->
     <category label="30101">
 
-        <setting id="items_per_page" label="30102"
-                 type="slider" range="16,4,100" option="int"
+        <setting id="first" label="30102" type="slider"
+                 range="16,4,48" option="int"
                  default="32" />
 
-        <setting id="show_nsfw" label="30103"
-                 type="bool"
+        <setting id="showNSFW" label="30103" type="bool"
                  default="false" />
-
-    </category>
-
-    <!-- Quality -->
-    <category label="30111">
-
-        <!-- BEGIN WARNING:
-                before modifying the following settings, please have a look at
-                the Quality class in lib/utils.py
-                ["Auto", "1080p", "720p", "480p", "360p", "Always Ask", "Adaptive"] -->
-
-        <setting id="stream_quality" label="30112"
-                 type="enum" lvalues="30901|30917|30916|30915|30914|30902|30903"
-                 default="0" />
-
-        <setting id="vod_quality" label="30113" visible="false"
-                 type="enum" lvalues="30901|30917|30916|30915|30914|30902|30903"
-                 default="0" />
-
-        <!-- END WARNING -->
 
     </category>
 

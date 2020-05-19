@@ -8,8 +8,7 @@ from datetime import datetime
 
 from six import string_types, iteritems, with_metaclass, raise_from
 
-from .. import _folders_schema_, _home_folders_
-from ..utils import ListItem, build_url, localized_string
+from utils import ListItem, buildUrl, localizedString
 
 
 # ------------------------------------------------------------------------------
@@ -75,24 +74,56 @@ class DLiveObject(with_metaclass(DLiveType, object)):
             return _repr_.format(self)
 
 
-class DLiveItems(list):
-
-    _ctor_ = DLiveObject
-    _content_ = "videos"
-    _category_ = None
-
-    def __init__(self, items, endCursor="-1", hasNextPage=False, content=None, category=None):
-        super(DLiveItems, self).__init__((self._ctor_(item) for item in items))
-        self.endCursor = endCursor
-        self.hasNextPage = hasNextPage
-        self.content = content or self._content_
-        self.category = category or self._category_
-
-    def items(self, *args):
-        return (item.item(*args) for item in self if item)
-
-
 # folders ----------------------------------------------------------------------
+
+_folders_schema_ = {
+    "streams": {
+        "": {
+            "id": 30004
+        },
+        "featured": {
+            "id": 30007,
+            "action": "featured"
+        }
+    },
+    "categories": {
+        "": {
+            "id": 30006
+        }
+    },
+    "users": {
+        "recommended": {
+            "id": 30009,
+            "action": "recommended"
+        }
+    },
+    "search": {
+        "": {
+            "id": 30002
+        },
+        "users": {
+            "id": 30003,
+            "action": "search_users"
+        },
+        "categories": {
+            "id": 30006,
+            "action": "search_categories"
+        }
+    }
+}
+
+
+_home_folders_ = (
+    {"type": "streams", "style": "featured"},
+    {"type": "users", "style": "recommended"},
+    {"type": "streams"},
+    {"type": "categories"},
+    {"type": "search"}
+)
+
+
+_search_styles_ = ("users", "categories")
+
 
 class Folder(DLiveObject):
 
@@ -103,15 +134,18 @@ class Folder(DLiveObject):
         except KeyError:
             return ""
 
-    def item(self, url):
+    def item(self, url, **kwargs):
         folder = _folders_schema_[self.type][self.style]
-        label = localized_string(folder["id"])
+        label = folder["id"]
+        if isinstance(label, int):
+            label = localizedString(label)
         action = folder.get("action", self.type)
-        plot = folder.get("plot", "")
+        kwargs.update(folder.get("kwargs", {}))
+        plot = folder.get("plot", label)
         if isinstance(plot, int):
-            plot = localized_string(plot)
+            plot = localizedString(plot)
         return ListItem(
-            label, build_url(url, action=action), isFolder=True,
+            label, buildUrl(url, action=action, **kwargs), isFolder=True,
             infos={"video": {"title": label, "plot": plot}})
 
 
@@ -133,8 +167,15 @@ class Language(Node):
 
 class DLiveItem(Node):
 
+    _menus_ = []
+
     def plot(self):
         return self._plot_.format(self)
+
+    def menus(self, **kwargs):
+        return [(localizedString(label),
+                 action.format(addonId=getAddonId(), **kwargs))
+                for label, action in self._menus_]
 
 
 # categories -------------------------------------------------------------------
@@ -143,19 +184,16 @@ class DLiveItem(Node):
 class Category(DLiveItem):
 
     _repr_ = "Category({0.backendID}, title={0.title})"
-    _plot_ = localized_string(30053)
+    _plot_ = localizedString(30053)
 
     def item(self, url, action):
         if self.backendID:
             return ListItem(
                 self.title,
-                build_url(url, action=action, categoryID=self.backendID),
+                buildUrl(url, action=action, categoryID=self.backendID),
                 isFolder=True,
                 infos={"video": {"plot": self.plot()}},
                 poster=self.imgUrl)
-
-
-EmptyCategory = Category({"backendID": -1, "title": "", "imgUrl": "", "watchingCount": 0})
 
 
 # users ------------------------------------------------------------------------
@@ -165,7 +203,7 @@ class User(DLiveItem):
 
     __date__ = {"createdAt"}
     _repr_ = "User({0.username}, displayname={0.displayname})"
-    _plot_ = localized_string(30054)
+    _plot_ = localizedString(30054)
 
     @property
     def livestream(self):
@@ -190,7 +228,7 @@ class User(DLiveItem):
     def item(self, url, action):
         return ListItem(
             self.displayname,
-            build_url(url, action=action, username=self.username),
+            buildUrl(url, action=action, username=self.username),
             isFolder=True,
             infos={"video": {"plot": self.plot()}},
             poster=self.avatar)
@@ -204,12 +242,12 @@ class Livestream(DLiveItem):
     __json__ = {"language": Language, "category": Category, "creator": User}
     __date__ = {"createdAt"}
     _repr_ = "Livestream({0.permlink})"
-    _plot_ = localized_string(30055)
+    _plot_ = localizedString(30055)
     _video_infos_ = {"mediatype": "video", "playcount": 0}
 
     @property
     def rating(self):
-        return localized_string(30052) if self.ageRestriction else ""
+        return localizedString(30052) if self.ageRestriction else ""
 
     def _item(self, path):
         title = " - ".join((self.creator.displayname, self.title))
@@ -222,7 +260,7 @@ class Livestream(DLiveItem):
 
     def item(self, url, action):
         return self._item(
-            build_url(url, action=action, username=self.creator.username))
+            buildUrl(url, action=action, username=self.creator.username))
 
 
 # vods -------------------------------------------------------------------------
@@ -239,26 +277,23 @@ class PastBroadcast(DLiveItem):
     __json__ = {"language": Language, "category": Category, "creator": User}
     __date__ = {"createdAt"}
     _repr_ = "PastBroadcast({0.permlink})"
-    _plot_ = localized_string(30056)
+    _plot_ = localizedString(30056)
     _video_infos_ = {"mediatype": "video"}
-
-    #@property
-    #def resolutions(self):
-    #    return [Resolution(resolution) for resolution in self["resolution"]]
 
     @property
     def rating(self):
-        return localized_string(30052) if self.ageRestriction else ""
+        return localizedString(30052) if self.ageRestriction else ""
 
     def _item(self, path):
         streamInfos = {"video": {"duration": self.length}}
-        return ListItem(
+        item = ListItem(
             self.title,
             path,
             infos={"video": dict(self._video_infos_,
                                  title=self.title, plot=self.plot())},
             streamInfos=streamInfos,
             thumb=self.thumbnailUrl)
+        return item
 
     def item(self, *args):
         return self._item(self.playbackUrl)
@@ -268,6 +303,24 @@ class PastBroadcast(DLiveItem):
 # ------------------------------------------------------------------------------
 # lists, collections
 # ------------------------------------------------------------------------------
+
+class DLiveItems(list):
+
+    _ctor_ = DLiveObject
+    _content_ = "videos"
+    _category_ = None
+
+    def __init__(self, items, endCursor="-1", hasNextPage=False,
+                 content=None, category=None):
+        super(DLiveItems, self).__init__((self._ctor_(item) for item in items))
+        self.endCursor = endCursor
+        self.hasNextPage = hasNextPage
+        self.content = content or self._content_
+        self.category = category or self._category_
+
+    def items(self, *args):
+        return (item.item(*args) for item in self if item)
+
 
 class Folders(DLiveItems):
 
@@ -298,31 +351,4 @@ class Livestreams(DLiveItems):
 class PastBroadcasts(DLiveItems):
 
     _ctor_ = PastBroadcast
-
-
-# ------------------------------------------------------------------------------
-# cache
-# ------------------------------------------------------------------------------
-
-class Cache(dict):
-
-    def __getitem__(self, key):
-        return super(Cache, self).__getitem__(int(key))
-
-    def __setitem__(self, key, value):
-        return super(Cache, self).__setitem__(int(key), value)
-
-    def __delitem__(self, key):
-        return super(Cache, self).__delitem__(int(key))
-
-
-class CategoryCache(Cache):
-
-    def __init__(self, items=None):
-        if not items:
-            items = []
-        super(CategoryCache, self).__init__({int(item.backendID): item for item in items})
-
-    def update(self, items):
-        return super(CategoryCache, self).update({int(item.backendID): item for item in items})
 
