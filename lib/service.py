@@ -5,10 +5,10 @@ from requests import Session, Timeout
 
 from iapc import Service, public
 
-from tools import makeDataDir, getSetting, getLanguage
+from tools import makeDataDir, getSetting, getLanguage, containerRefresh
 
 from dlive.graphql import GraphQLError, queries
-from dlive.utils import Cache, containerRefresh
+from dlive.utils import Cache
 
 
 # ------------------------------------------------------------------------------

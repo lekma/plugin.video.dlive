@@ -3,9 +3,7 @@
 
 from sys import argv
 
-from tools import getAddonId
-
-from dlive.utils import containerUpdate
+from tools import getAddonId, containerUpdate
 
 
 __plugin_url__ = f"plugin://{getAddonId()}"

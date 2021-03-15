@@ -42,18 +42,6 @@ def searchDialog():
     return inputDialog(heading=30002)
 
 
-# misc execute utils -----------------------------------------------------------
-
-# containerRefresh
-def containerRefresh(*args):
-    executeBuiltin("Container.Refresh", *args)
-
-
-# containerUpdate
-def containerUpdate(*args):
-    executeBuiltin("Container.Update", *args)
-
-
 # ------------------------------------------------------------------------------
 # Cache
 
