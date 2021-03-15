@@ -55,6 +55,12 @@ msgctxt "#30016"
 msgid "Offline"
 msgstr ""
 
+# context menus
+
+msgctxt "#30031"
+msgid "Go to user"
+msgstr ""
+
 # items
 
 msgctxt "#30052"
@@ -78,6 +84,10 @@ msgid "{0.title}\nPlaying: {0.category.title}\nViews: {0.viewCount}\nLanguage: {
 msgstr ""
 
 
+msgctxt "#30098"
+msgid "New search"
+msgstr ""
+
 msgctxt "#30099"
 msgid "More..."
 msgstr ""
@@ -98,5 +108,13 @@ msgstr ""
 
 msgctxt "#30103"
 msgid "Show NSFW"
+msgstr ""
+
+msgctxt "#30104"
+msgid "Show settings"
+msgstr ""
+
+msgctxt "#30105"
+msgid "Timeout (0.0 means no timeout)"
 msgstr ""
 

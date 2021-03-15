@@ -1,109 +1,101 @@
 # -*- coding: utf-8 -*-
 
 
-from __future__ import absolute_import, division, unicode_literals
+from requests import Session, Timeout
 
-
-import warnings
-
-import requests
-
-from kodi_six import xbmc
-
-from queries import _queries_
 from iapc import Service, public
-from utils import DataCache, getSetting, log
+
+from tools import makeDataDir, getSetting, getLanguage
+
+from dlive.graphql import GraphQLError, queries
+from dlive.utils import Cache, containerRefresh
 
 
-class GraphQLError(Warning):
+# ------------------------------------------------------------------------------
+# Categories
 
-    _unknown_ = "Unknown error ({})"
+class Categories(Cache, key="backendID"):
 
-    def __init__(self, errors):
-        try:
-            error = errors[0]
-        except IndexError:
-            message = self._unknown_.format("empty 'errors' list")
-        else:
-            if isinstance(error, dict):
-                try:
-                    message = error["message"]
-                except KeyError:
-                    message = self._unknown_.format("missing error 'message'")
-            else:
-                message = str(error)
-            if not message:
-                message = self._unknown_.format("empty error 'message'")
-        super(GraphQLError, self).__init__(message)
+    missing = {
+        "backendID": "-1",
+        "title": "",
+        "imgUrl": "",
+        "watchingCount": 0
+    }
 
-
-class Categories(DataCache):
-
-    _type_ = int
-    _key_ = "backendID"
-    _missing_ = {"backendID": -1, "title": "", "imgUrl": "", "watchingCount": 0}
-
-    def __init__(self, data):
-        super(Categories, self).__init__(data["list"])
+    def __init__(self, data=None):
+        super().__init__(data["list"] if data else [])
 
     def update(self, data):
-        return super(Categories, self).update(data["list"])
+        return super().update(data["list"])
 
 
 # ------------------------------------------------------------------------------
-# Session
-# ------------------------------------------------------------------------------
+# DLiveSession
 
-class DLiveSession(requests.Session):
+class DLiveSession(Session):
 
-    def __init__(self, headers=None):
-        super(DLiveSession, self).__init__()
+    def __init__(self, logger, headers=None):
+        super().__init__()
+        self.logger = logger.getLogger("session")
         if headers:
             self.headers.update(headers)
+        self.__setup__()
+
+    def __setup__(self):
+        if (timeout := getSetting("timeout", float)) <= 0.0:
+            self.timeout = None
+        else:
+            self.timeout = (((timeout - (timeout % 3)) + 0.05), timeout)
+        self.logger.info(f"timeout: {self.timeout}")
 
     def request(self, *args, **kwargs):
-        response = super(DLiveSession, self).request(*args, **kwargs)
+        response = super().request(*args, timeout=self.timeout, **kwargs)
         response.raise_for_status()
         return response
 
 
 # ------------------------------------------------------------------------------
-# Service
-# ------------------------------------------------------------------------------
+# DLiveService
 
 class DLiveService(Service):
 
-    _headers_ = {}
+    __headers__ = {}
 
-    _query_url_ = "https://graphigo.prd.dlive.tv/"
+    __url__ = "https://graphigo.prd.dlive.tv/"
 
     def __init__(self, *args, **kwargs):
-        super(DLiveService, self).__init__(*args, **kwargs)
-        self.session = DLiveSession(headers=self._headers_)
-        self._categories_ = Categories(self.query("categories", first=48))
+        super().__init__(*args, **kwargs)
+        self.__session__ = DLiveSession(self.logger, headers=self.__headers__)
+        self.__categories__ = Categories(self.query("categories", first=48))
+        makeDataDir()
 
-    def setup(self):
-        self.first = getSetting("first", int)
-        self.showNSFW = getSetting("showNSFW", bool)
-        self.userLanguageCode = xbmc.getLanguage(xbmc.ISO_639_1)
-
-    def start(self):
-        log("starting service...")
-        self.setup()
-        self.serve()
-        log("service stopped")
+    def start(self, **kwargs):
+        self.logger.info("starting...")
+        self.__setup__()
+        self.serve(**kwargs)
+        self.logger.info("stopped")
 
     def onSettingsChanged(self):
-        self.setup()
+        self.__setup__()
+        containerRefresh()
 
     # --------------------------------------------------------------------------
 
-    def query(self, key, _key_=None, **kwargs):
-        query, keys = _queries_[key]
+    def __setup__(self):
+        self.__first__ = getSetting("first", int)
+        self.__nsfw__ = getSetting("nsfw", bool)
+        self.__language__ = getLanguage()
+        self.__session__.__setup__()
+
+    # --------------------------------------------------------------------------
+
+    def query(self, query, key=None, **kwargs):
+        query, keys = queries[query]
         json = {"query": query}
         if kwargs:
             json.update(variables=kwargs)
-        response = self.session.post(self._query_url_, json=json).json()
+        response = self.__session__.post(self.__url__, json=json).json()
         data = response.get("data", None)
         errors = response.get("errors", None)
         if errors is not None:
@@ -111,11 +103,11 @@ class DLiveService(Service):
             if data is None:
                 raise error
             else:
-                warnings.warn(error) # logWarning?
-        for key in keys:
-            data = data[key]
-        if _key_ is not None:
-            return [item[_key_] for item in data]
+                self.logger.warning(f"query error [{error}]")
+        for k in keys:
+            data = data[k]
+        if key is not None:
+            return [item[key] for item in data]
         return data
 
     # public api ---------------------------------------------------------------
@@ -126,49 +118,52 @@ class DLiveService(Service):
 
     @public
     def user(self, **kwargs):
-        return self.query("user", first=self.first, **kwargs)
+        return self.query("user", first=self.__first__, **kwargs)
 
     @public
     def category(self, **kwargs):
         # unfortunately I couldn't find a way to get 1 category from its id
-        return self._categories_[kwargs["categoryID"]]
+        return self.__categories__[kwargs["categoryID"]]
 
     # --------------------------------------------------------------------------
 
     @public
     def featured(self, **kwargs):
-        return self.query("featured", _key_="item",
-                          userLanguageCode=self.userLanguageCode, **kwargs)
+        return self.query(
+            "featured", key="item", userLanguageCode=self.__language__, **kwargs
+        )
 
     @public
     def recommended(self, **kwargs):
-        return self.query("recommended", _key_="user", **kwargs)
+        return self.query("recommended", key="user", **kwargs)
 
     @public
     def streams(self, **kwargs):
-        return self.query("streams", first=self.first,
-                          showNSFW=self.showNSFW, **kwargs)
+        return self.query(
+            "streams", first=self.__first__, showNSFW=self.__nsfw__, **kwargs
+        )
 
     @public
     def categories(self, **kwargs):
-        data = self.query("categories", first=self.first, **kwargs)
-        self._categories_.update(data)
+        data = self.query("categories", first=self.__first__, **kwargs)
+        self.__categories__.update(data)
         return data
 
     @public
     def search_users(self, **kwargs):
-        return self.query("search_users", first=self.first, **kwargs)
+        result = self.query("search_users", first=self.__first__, **kwargs)
+        result["list"] = [item.get("creator", item) for item in result["list"]]
+        return result
 
     @public
     def search_categories(self, **kwargs):
-        data = self.query("search_categories", first=self.first, **kwargs)
-        self._categories_.update(data)
+        data = self.query("search_categories", first=self.__first__, **kwargs)
+        self.__categories__.update(data)
         return data
 
 
 # __main__ ---------------------------------------------------------------------
 
 if __name__ == "__main__":
-
     DLiveService().start()
 

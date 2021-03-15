@@ -1,10 +1,34 @@
 # -*- coding: utf-8 -*-
 
 
-from __future__ import absolute_import, division, unicode_literals
+# ------------------------------------------------------------------------------
+# GraphQLError
+
+class GraphQLError(Warning):
+
+    __unknown__ = "Unknown error ({})"
+
+    def __init__(self, errors):
+        try:
+            error = errors[0]
+        except IndexError:
+            message = self.__unknown__.format("empty 'errors' list")
+        else:
+            if isinstance(error, dict):
+                try:
+                    message = error["message"]
+                except KeyError:
+                    message = self.__unknown__.format("missing error 'message'")
+            else:
+                message = str(error)
+            if not message:
+                message = self.__unknown__.format("empty error 'message'")
+        super().__init__(message)
 
 
-_queries_ = {
+# queries ----------------------------------------------------------------------
+
+queries = {
 
     "stream": (
         """
@@ -242,6 +266,16 @@ _queries_ = {
                         hasNextPage
                     }
                     list {
+                        ... on Livestream {
+                            creator {
+                                username
+                                displayname
+                                avatar
+                                followers {
+                                    totalCount
+                                }
+                            }
+                        }
                         ... on User {
                             username
                             displayname
