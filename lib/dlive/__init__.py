@@ -27,15 +27,18 @@ __schema__ = {
     },
     "search": {
         "": {
-            "label": 30002
+            "label": 30002,
+            "art": {"poster": "DefaultAddonsSearch.png"}
         },
         "users": {
             "label": 30003,
-            "action": "search_users"
+            "kwargs": {"query": "search_users"},
+            "art": {"poster": "DefaultArtist.png"}
         },
         "categories": {
             "label": 30006,
-            "action": "search_categories"
+            "kwargs": {"query": "search_categories"},
+            "art": {"poster": "DefaultGenre.png"}
         }
     }
 
@@ -53,5 +56,17 @@ home = (
 
 styles = {
     "search": ("users", "categories")
+}
+
+
+search_queries = {
+    "search_users": {
+        "action": "user",
+        "category": 30003
+    },
+    "search_categories": {
+        "action": "category",
+        "category": 30006
+    }
 }
 

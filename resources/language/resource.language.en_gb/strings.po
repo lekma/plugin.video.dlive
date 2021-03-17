@@ -61,6 +61,14 @@ msgctxt "#30031"
 msgid "Go to user"
 msgstr ""
 
+msgctxt "#30035"
+msgid "Remove"
+msgstr ""
+
+msgctxt "#30036"
+msgid "Clear search history"
+msgstr ""
+
 # items
 
 msgctxt "#30052"

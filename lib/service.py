@@ -151,6 +151,7 @@ class DLiveService(Service):
 
     @public
     def search_users(self, **kwargs):
+        self.logger.info(f"search_users(kwargs={kwargs})")
         result = self.query("search_users", first=self.__first__, **kwargs)
         result["list"] = [item.get("creator", item) for item in result["list"]]
         return result

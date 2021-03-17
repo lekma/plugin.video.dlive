@@ -31,9 +31,9 @@ class DLiveClient(object):
         self.logger = Logger(component="client")
         self.__client__ = Client()
 
-    def __query__(self, key, list=False, **kwargs):
-        data = getattr(self.__client__, key)(**kwargs)
-        cls = self.__classes__[key]
+    def __query__(self, query, list=False, **kwargs):
+        data = getattr(self.__client__, query)(**kwargs)
+        cls = self.__classes__[query]
         return cls(data["list"], **data["pageInfo"]) if list else cls(data)
 
     # --------------------------------------------------------------------------
@@ -68,11 +68,9 @@ class DLiveClient(object):
     def categories(self, **kwargs):
         return self.__query__("categories", list=True, **kwargs)
 
-    def search_users(self, **kwargs):
-        return self.__query__("search_users", list=True, **kwargs)
-
-    def search_categories(self, **kwargs):
-        return self.__query__("search_categories", list=True, **kwargs)
+    def search(self, **kwargs):
+        self.logger.info(f"search(kwargs={kwargs})")
+        return self.__query__(kwargs.pop("query"), list=True, **kwargs)
 
 
 client = DLiveClient()

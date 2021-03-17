@@ -3,13 +3,15 @@
 
 from sys import argv
 
-from tools import getAddonId, containerUpdate
+from tools import getAddonId, containerUpdate, containerRefresh
+
+from dlive.persistence import search_history
 
 
 __plugin_url__ = f"plugin://{getAddonId()}"
 
 
-# user stuff ----------------------------------------------------------------
+# user -------------------------------------------------------------------------
 
 __user_url__ = f"{__plugin_url__}/?action=user&username={{}}"
 
@@ -17,10 +19,23 @@ def goToUser(username):
     containerUpdate(__user_url__.format(username))
 
 
+# search -----------------------------------------------------------------------
+
+def removeSearchQuery(query, text):
+    search_history.remove(query=query, text=text)
+    containerRefresh()
+
+def clearSearchHistory(query=None):
+    search_history.clear(query=query)
+    containerRefresh()
+
+
 # __main__ ---------------------------------------------------------------------
 
 __dispatch__ = {
-    "goToUser": goToUser
+    "goToUser": goToUser,
+    "removeSearchQuery": removeSearchQuery,
+    "clearSearchHistory": clearSearchHistory
 }
 
 def dispatch(name, *args):

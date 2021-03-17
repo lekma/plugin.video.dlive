@@ -203,10 +203,10 @@ class Livestream(Video):
     def infos(self):
         return dict(self.__infos__, playcount=0)
 
-    def makeItem(self, path):
-        item = super().makeItem(path)
-        item.setLabel(f"[COLOR red][LIVE][/COLOR] {self.title}")
-        return item
+    #def makeItem(self, path):
+    #    item = super().makeItem(path)
+    #    item.setLabel(f"[COLOR red][LIVE][/COLOR] {self.title}")
+    #    return item
 
     def getItem(self, url, action):
         return self.makeItem(
@@ -254,4 +254,31 @@ class PastBroadcast(Video):
 class PastBroadcasts(Items):
 
     __ctor__ = PastBroadcast
+
+
+# ------------------------------------------------------------------------------
+# Queries
+
+class Query(Item):
+
+    __menus__ = [
+        (30035, "RunScript({addonId},removeSearchQuery,{query},{text})"),
+        (30036, "RunScript({addonId},clearSearchHistory,{query})")
+    ]
+
+    def getItem(self, url):
+        return ListItem(
+            self.text,
+            buildUrl(url, action="search", query=self.query, text=self.text),
+            isFolder=True,
+            infos={"video": {"title": self.text, "plot": self.text}},
+            contextMenus=self.menus(query=self.query, text=self.text),
+            poster="DefaultAddonsSearch.png",
+            thumb="DefaultAddonsSearch.png"
+        )
+
+
+class Queries(Items):
+
+    __ctor__ = Query
 

@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
 
 
-__all__ = ["parseQuery", "buildUrl", "dumpObject", "loadObject"]
+__all__ = ["parseQuery", "buildUrl"]
 
 
-from os.path import exists
-from pickle import dump, load
 from urllib.parse import parse_qsl, urlencode
 
 
@@ -35,17 +33,4 @@ def parseQuery(query):
 def buildUrl(*args, **kwargs):
     url = "/".join(args)
     return "?".join((url, urlencode(kwargs))) if kwargs else url
-
-
-# pickle -----------------------------------------------------------------------
-
-def dumpObject(obj, path):
-    with open(path, "wb+") as f:
-        dump(obj, f, -1)
-
-def loadObject(path, default=None):
-    if exists(path):
-        with open(path, "rb") as f:
-            return load(f)
-    return default
 

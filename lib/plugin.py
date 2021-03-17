@@ -5,10 +5,11 @@ from sys import argv
 
 from tools import Plugin, action, parseQuery, openSettings, getSetting
 
-from dlive import home, styles
+from dlive import home, styles, search_queries
 from dlive.client import client
 from dlive.objects import Folders
-from dlive.utils import moreItem, settingsItem, searchDialog
+from dlive.persistence import search_cache, search_history
+from dlive.utils import settingsItem, moreItem, newSearchItem
 
 
 # ------------------------------------------------------------------------------
@@ -22,6 +23,11 @@ class DLivePlugin(Plugin):
         return Folders(
             {"type": type, "style": style, "kwargs": kwargs}
             for style in styles[type]
+        )
+
+    def addNewSearch(self, **kwargs):
+        return self.addItem(
+            newSearchItem(self.url, action="search", new=True, **kwargs)
         )
 
     def addSettings(self):
@@ -66,6 +72,7 @@ class DLivePlugin(Plugin):
 
     @action()
     def home(self, **kwargs):
+        self.logger.info(f"search_cache: {search_cache}")
         if self.addDirectory(Folders(home)):
             return self.addSettings()
         return False
@@ -98,27 +105,50 @@ class DLivePlugin(Plugin):
 
     # search -------------------------------------------------------------------
 
+    def __search__(self, **kwargs):
+        self.logger.info(f"__search__(kwargs={kwargs})")
+        search_cache.push(kwargs)
+        return self.addDirectory(
+            client.search(**kwargs),
+            search_queries[kwargs["query"]]["action"], **kwargs
+        )
+
+    def __new_search__(self, **kwargs):
+        self.logger.info(f"__new_search__(kwargs={kwargs})")
+        try:
+            kwargs = search_cache.pop()
+        except IndexError:
+            kwargs = search_history.new(**kwargs)
+        if "text" in kwargs:
+            return self.__search__(**kwargs)
+        return False
+
+    def __history__(self, **kwargs):
+        self.logger.info(f"__history__(kwargs={kwargs})")
+        search_cache.clear()
+        if self.addNewSearch(**kwargs):
+            return self.addDirectory(
+                search_history.history(
+                    category=search_queries[kwargs["query"]]["category"],
+                    **kwargs
+                )
+            )
+        return False
+
     @action(category=30002)
     def search(self, **kwargs):
+        self.logger.info(f"search(kwargs={kwargs})")
+        self.logger.info(f"search_cache: {search_cache}")
+        if "query" in kwargs:
+            new = kwargs.pop("new", False)
+            if "text" in kwargs:
+                return self.__search__(**kwargs)
+            if new:
+                return self.__new_search__(**kwargs)
+            return self.__history__(**kwargs)
+        search_cache.clear()
+        self.logger.info(f"search_cache: {search_cache}")
         return self.addDirectory(self.getSubfolders("search"))
-
-    @action(category=30003)
-    def search_users(self, **kwargs):
-        if (text := kwargs.pop("text", "") or searchDialog()):
-            return self.addDirectory(
-                client.search_users(text=text, **kwargs),
-                "user", text=text, **kwargs
-            )
-        return False
-
-    @action(category=30006)
-    def search_categories(self, **kwargs):
-        if (text := kwargs.pop("text", "") or searchDialog()):
-            return self.addDirectory(
-                client.search_categories(text=text, **kwargs),
-                "category", text=text, **kwargs
-            )
-        return False
 
     # settings -----------------------------------------------------------------
 

@@ -36,6 +36,11 @@ def moreItem(url, **kwargs):
     return __makeItem__(30099, url, __more_art__, **kwargs)
 
 
+# newSearch item
+def newSearchItem(url, **kwargs):
+    return __makeItem__(30098, url, "DefaultAddSource.png", **kwargs)
+
+
 # search -----------------------------------------------------------------------
 
 def searchDialog():

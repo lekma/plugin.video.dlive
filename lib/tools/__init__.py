@@ -4,8 +4,9 @@
 from .addon import *
 from .execute import *
 from .gui import *
-from .misc import *
+from .persistence import *
 from .plugin import *
+from .url import *
 
-del addon, execute, gui, misc, plugin
+del addon, execute, gui, persistence, plugin, url
 
