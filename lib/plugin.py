@@ -3,7 +3,7 @@
 
 from sys import argv
 
-from tools import Plugin, action, parseQuery, openSettings, getSetting
+from iapc.tools import Plugin, action, parseQuery, openSettings, getSetting
 
 from dlive import home, styles, search_queries
 from dlive.client import client
@@ -72,7 +72,6 @@ class DLivePlugin(Plugin):
 
     @action()
     def home(self, **kwargs):
-        self.logger.info(f"search_cache: {search_cache}")
         if self.addDirectory(Folders(home)):
             return self.addSettings()
         return False
@@ -106,7 +105,6 @@ class DLivePlugin(Plugin):
     # search -------------------------------------------------------------------
 
     def __search__(self, **kwargs):
-        self.logger.info(f"__search__(kwargs={kwargs})")
         search_cache.push(kwargs)
         return self.addDirectory(
             client.search(**kwargs),
@@ -114,7 +112,6 @@ class DLivePlugin(Plugin):
         )
 
     def __new_search__(self, **kwargs):
-        self.logger.info(f"__new_search__(kwargs={kwargs})")
         try:
             kwargs = search_cache.pop()
         except IndexError:
@@ -124,7 +121,6 @@ class DLivePlugin(Plugin):
         return False
 
     def __history__(self, **kwargs):
-        self.logger.info(f"__history__(kwargs={kwargs})")
         search_cache.clear()
         if self.addNewSearch(**kwargs):
             return self.addDirectory(
@@ -137,8 +133,6 @@ class DLivePlugin(Plugin):
 
     @action(category=30002)
     def search(self, **kwargs):
-        self.logger.info(f"search(kwargs={kwargs})")
-        self.logger.info(f"search_cache: {search_cache}")
         if "query" in kwargs:
             new = kwargs.pop("new", False)
             if "text" in kwargs:
@@ -147,7 +141,6 @@ class DLivePlugin(Plugin):
                 return self.__new_search__(**kwargs)
             return self.__history__(**kwargs)
         search_cache.clear()
-        self.logger.info(f"search_cache: {search_cache}")
         return self.addDirectory(self.getSubfolders("search"))
 
     # settings -----------------------------------------------------------------

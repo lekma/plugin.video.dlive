@@ -3,7 +3,7 @@
 
 from sys import argv
 
-from tools import getAddonId, containerUpdate, containerRefresh
+from iapc.tools import getAddonId, containerUpdate, containerRefresh
 
 from dlive.persistence import search_history
 

@@ -3,8 +3,10 @@
 
 from datetime import datetime
 
-from tools import localizedString, maybeLocalize, getAddonId, ListItem, buildUrl
-from tools.objects import Type, Object, List
+from iapc.tools import (
+    localizedString, maybeLocalize, getAddonId, ListItem, buildUrl
+)
+from iapc.tools.objects import Type, Object, List
 
 from . import __schema__
 

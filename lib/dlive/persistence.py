@@ -3,7 +3,7 @@
 
 from collections import deque, OrderedDict
 
-from tools import Persistent, save
+from iapc.tools import Persistent, save, notify
 
 from .objects import Queries
 from .utils import searchDialog
@@ -55,7 +55,8 @@ class SearchHistory(Persistent, dict):
         if (query := kwargs.get("query")):
             self[query].clear()
         else:
-            self.clear()
+            super().clear()
+            notify(30114, time=2000)
 
     def history(self, category=None, **kwargs):
         return Queries(

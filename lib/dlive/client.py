@@ -2,8 +2,7 @@
 
 
 from iapc import Client
-
-from tools import Logger, notify
+from iapc.tools import Logger, notify
 
 from .objects import Category, Categories, Streams, User, Users
 
@@ -28,7 +27,7 @@ class DLiveClient(object):
     }
 
     def __init__(self):
-        self.logger = Logger(component="client")
+        #self.logger = Logger(component="client")
         self.__client__ = Client()
 
     def __query__(self, query, list=False, **kwargs):
@@ -69,7 +68,6 @@ class DLiveClient(object):
         return self.__query__("categories", list=True, **kwargs)
 
     def search(self, **kwargs):
-        self.logger.info(f"search(kwargs={kwargs})")
         return self.__query__(kwargs.pop("query"), list=True, **kwargs)
 
 

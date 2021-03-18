@@ -126,3 +126,11 @@ msgctxt "#30105"
 msgid "Timeout (0.0 means no timeout)"
 msgstr ""
 
+msgctxt "#30113"
+msgid "Clear all search history"
+msgstr ""
+
+msgctxt "#30114"
+msgid "Search history cleared"
+msgstr ""
+

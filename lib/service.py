@@ -4,8 +4,7 @@
 from requests import Session, Timeout
 
 from iapc import Service, public
-
-from tools import makeDataDir, getSetting, getLanguage, containerRefresh
+from iapc.tools import makeProfile, getSetting, getLanguage, containerRefresh
 
 from dlive.graphql import GraphQLError, queries
 from dlive.utils import Cache
@@ -37,17 +36,18 @@ class DLiveSession(Session):
 
     def __init__(self, logger, headers=None):
         super().__init__()
-        self.logger = logger.getLogger("session")
+        self.logger = logger.getLogger("service.session")
         if headers:
             self.headers.update(headers)
-        self.__setup__()
+        self.__setup__(True)
 
-    def __setup__(self):
+    def __setup__(self, init=False):
         if (timeout := getSetting("timeout", float)) <= 0.0:
             self.timeout = None
         else:
             self.timeout = (((timeout - (timeout % 3)) + 0.05), timeout)
-        self.logger.info(f"timeout: {self.timeout}")
+        if not init:
+            self.logger.info(f"timeout: {self.timeout}")
 
     def request(self, *args, **kwargs):
         response = super().request(*args, timeout=self.timeout, **kwargs)
@@ -67,8 +67,8 @@ class DLiveService(Service):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__session__ = DLiveSession(self.logger, headers=self.__headers__)
-        self.__categories__ = Categories(self.query("categories", first=48))
-        makeDataDir()
+        self.__categories__ = Categories(self.query("categories", first=64))
+        makeProfile()
 
     def start(self, **kwargs):
         self.logger.info("starting...")
@@ -151,7 +151,6 @@ class DLiveService(Service):
 
     @public
     def search_users(self, **kwargs):
-        self.logger.info(f"search_users(kwargs={kwargs})")
         result = self.query("search_users", first=self.__first__, **kwargs)
         result["list"] = [item.get("creator", item) for item in result["list"]]
         return result

@@ -30,6 +30,12 @@
                     <control type="toggle" />
                 </setting>
 
+                <setting id="clearAllSearchHistory" label="30113" type="action">
+                    <level>0</level>
+                    <data>RunScript($ID,clearSearchHistory)</data>
+                    <control type="button" format="action" />
+                </setting>
+
                 <setting id="timeout" label="30105" type="number">
                     <level>2</level>
                     <default>10.0</default>
